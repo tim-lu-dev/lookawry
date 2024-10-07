@@ -11,9 +11,7 @@ import {
     CardTitle,
 } from "../components/ui/card"
 import { toast } from "sonner"
-
 import { Spinner } from '../components/ui/spinner';
-
 import {
     Tabs,
     TabsContent,
@@ -22,25 +20,38 @@ import {
 } from "../components/ui/tabs"
 import { Config, Result } from "./useLocalStorage";
 import { PlugZap } from "lucide-react";
-const QueryComp = ({ setResults, connection }:
-    {
+
+/**
+ * QueryComp component allows users to interact with the database
+ * through asking questions, generating SQL queries, and executing SQL directly.
+ * It handles loading states and error handling for each operation.
+ */
+const QueryComp = ({ setResults, connection }: {
         connection: Config | null,
         setConnection: (config: Config) => void,
         results: Result[],
         setResults: React.Dispatch<React.SetStateAction<Result[]>>
-    }
-) => {
+    }) => {
+    
     const [loading, setLoading] = useState<boolean>(false);
     const [queryTab, setQueryTab] = useState<string>("ask");
     const [sql, setSql] = useState<string>("");
     const [question, setQuestion] = useState<string>("");
 
+    // Handler for setting the question from the input
     const questionHandler = (e: { target: { value: React.SetStateAction<string>; }; }) => {
         setQuestion(e.target.value)
     }
+
+    // Handler for setting the SQL query from the input
     const sqlHandler = (e: { target: { value: React.SetStateAction<string>; }; }) => {
         setSql(e.target.value)
     }
+
+    /**
+     * Function to ask a question and retrieve results from the database.
+     * It invokes the backend API to process the question.
+     */
     const ask = async () => {
         setLoading(true);
 
@@ -51,20 +62,20 @@ const QueryComp = ({ setResults, connection }:
         }
         if (!connection.ai_model_path) {
             setLoading(false);
-            toast.error("Error: Please choose a ai model file before asking!")
+            toast.error("Error: Please choose an AI model file before asking!")
             return;
         }
         try {
             const { invoke } = await import("@tauri-apps/api");
 
             const res = await invoke<string>('ask', { data: JSON.stringify(connection), question: question });
-
-            const json: Result = JSON.parse(res) as Result;;
+            const json: Result = JSON.parse(res) as Result;
 
             setResults((prevResults: Result[]) => [...prevResults, json]);
             setLoading(false);
+
             if (Array.isArray(json.data)) {
-                toast.info("Success! Retrived " + json.data.length + " lines of data.")
+                toast.info("Success! Retrieved " + json.data.length + " lines of data.")
             }
         } catch (e) {
             const msg = Object.entries(e as { [key: string]: string }).map(([key, value]) => key + " : " + value).join(', ');
@@ -72,6 +83,10 @@ const QueryComp = ({ setResults, connection }:
             toast.error(msg)
         }
     }
+
+    /**
+     * Function to generate an SQL query from the given question using the AI model.
+     */
     const ask_for_sql = async () => {
         setLoading(true);
 
@@ -82,24 +97,30 @@ const QueryComp = ({ setResults, connection }:
         }
         if (!connection.ai_model_path) {
             setLoading(false);
-            toast.error("Error: Please choose a ai model file before asking!")
+            toast.error("Error: Please choose an AI model file before asking!")
             return;
         }
         try {
             const { invoke } = await import("@tauri-apps/api");
             const res = await invoke<string>('ask_for_sql', { data: JSON.stringify(connection), question: question });
             const json: Result = JSON.parse(res) as Result;
+
             setSql(json.sql);
             setQueryTab("query");
             setResults((prevResults: Result[]) => [...prevResults, json]);
             setLoading(false);
-            toast.info("Success! Retrived query statement.")
+            toast.info("Success! Retrieved query statement.")
         } catch (e) {
             const msg = Object.entries(e as { [key: string]: string }).map(([key, value]) => key + " : " + value).join(', ');
             setLoading(false);
             toast.error(msg)
         }
     }
+
+    /**
+     * Function to run a SQL query directly against the database.
+     * Only SELECT queries are allowed for security reasons.
+     */
     const query = async () => {
         setLoading(true);
 
@@ -108,16 +129,21 @@ const QueryComp = ({ setResults, connection }:
             setLoading(false);
             return;
         }
+        if (!sql.trim().toUpperCase().match(/^\s*SELECT\b/)) {
+            setLoading(false);
+            toast.error("Error: Please enter a valid SELECT query. Updates are not allowed!")
+            return;
+        }
         try {
             const { invoke } = await import("@tauri-apps/api");
             const res = await invoke<string>('query', { data: JSON.stringify(connection), sql: sql });
-
             const json: Result = JSON.parse(res) as Result;
 
             setResults((prevResults: Result[]) => [...prevResults, json]);
             setLoading(false);
+
             if (Array.isArray(json.data)) {
-                toast.info("Success! Retrived " + json.data.length + " lines of data.")
+                toast.info("Success! Retrieved " + json.data.length + " lines of data.")
             }
         } catch (e) {
             const msg = Object.entries(e as { [key: string]: string }).map(([key, value]) => key + " : " + value).join(', ');
@@ -125,6 +151,7 @@ const QueryComp = ({ setResults, connection }:
             toast.error(msg)
         }
     }
+
     return (
         <div className="grid w-full gap-1.5 flex-0">
             <Tabs defaultValue="ask" className="w-screen lg:w-[640px] p-4" value={queryTab} onValueChange={setQueryTab}>
