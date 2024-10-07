@@ -54,7 +54,7 @@ impl AppError {
             AppError::ExecutionError(msg) => ("ServerError", msg.clone()),
             AppError::UnknownError => ("UnknownError", "An unknown error occurred.".to_string()),
         };
-        let json:serde_json::Value = json!({
+        let json: serde_json::Value = json!({
             "err": err,
             "msg": msg
         });

@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use bigdecimal::BigDecimal;
+use rust_decimal::Decimal;
 use serde_json::Value;
 use sqlx::error::Error;
-use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row, TypeInfo};
-use rust_decimal::Decimal;  // Use Decimal from rust_decimal crate
+use sqlx::{mysql::MySqlRow, postgres::PgRow, sqlite::SqliteRow, Column, Row, TypeInfo}; // Use Decimal from rust_decimal crate
 
 pub struct SQLiteParser;
 
@@ -41,9 +41,7 @@ impl SQLiteParser {
                     let val: String = row.try_get(column_name)?;
                     Value::String(val.to_string())
                 }
-                _ => {
-                    Value::Null
-                }
+                _ => Value::Null,
             };
             json_object.insert(column_name.to_string(), value);
         }
@@ -57,11 +55,11 @@ pub struct PostgresParser;
 impl PostgresParser {
     pub async fn json(row: &PgRow) -> Result<Value, Error> {
         let mut json_object = serde_json::Map::new();
-    
+
         for column in row.columns() {
             let column_name = column.name();
             let column_type = column.type_info().name();
-            
+
             let value = match column_type {
                 "INT4" => {
                     let val: Option<i32> = row.try_get(column_name)?;
@@ -81,7 +79,9 @@ impl PostgresParser {
                 }
                 "FLOAT4" | "FLOAT8" => {
                     let val: Option<f64> = row.try_get(column_name)?;
-                    val.map_or(Value::Null, |v| Value::Number(serde_json::Number::from_f64(v).unwrap()))
+                    val.map_or(Value::Null, |v| {
+                        Value::Number(serde_json::Number::from_f64(v).unwrap())
+                    })
                 }
                 "BOOL" => {
                     let val: Option<bool> = row.try_get(column_name)?;
@@ -113,16 +113,16 @@ impl PostgresParser {
                 }
                 "ARRAY" => {
                     let val: Option<Vec<String>> = row.try_get(column_name)?;
-                    val.map_or(Value::Null, |v| Value::Array(v.into_iter().map(Value::String).collect()))
+                    val.map_or(Value::Null, |v| {
+                        Value::Array(v.into_iter().map(Value::String).collect())
+                    })
                 }
-                _ => {
-                    Value::Null
-                }
+                _ => Value::Null,
             };
-    
+
             json_object.insert(column_name.to_string(), value);
         }
-    
+
         Ok(Value::Object(json_object))
     }
 }
@@ -138,36 +138,38 @@ impl MySQLParser {
             let column_type = column.type_info().name();
             let value = match column_type {
                 "INT" => {
-                    let val: Option<i32> = row.try_get(column_name)?;  // Handle NULL as Option<i32>
+                    let val: Option<i32> = row.try_get(column_name)?; // Handle NULL as Option<i32>
                     val.map_or(Value::Null, |v| Value::Number(v.into()))
                 }
                 "VARCHAR" | "TEXT" | "ENUM" => {
-                    let val: Option<String> = row.try_get(column_name)?;  // Handle NULL as Option<String>
+                    let val: Option<String> = row.try_get(column_name)?; // Handle NULL as Option<String>
                     val.map_or(Value::Null, Value::String)
                 }
                 "FLOAT" | "DOUBLE" => {
-                    let val: Option<f64> = row.try_get(column_name)?;  // Handle NULL as Option<f64>
-                    val.map_or(Value::Null, |v| Value::Number(serde_json::Number::from_f64(v).unwrap()))
+                    let val: Option<f64> = row.try_get(column_name)?; // Handle NULL as Option<f64>
+                    val.map_or(Value::Null, |v| {
+                        Value::Number(serde_json::Number::from_f64(v).unwrap())
+                    })
                 }
                 "DECIMAL" => {
-                    let val: Option<Decimal> = row.try_get(column_name)?;  // Handle NULL as Option<f64>
-                    val.map_or(Value::Null, |v| Value::String(serde_json::to_string(&v).unwrap()))
+                    let val: Option<Decimal> = row.try_get(column_name)?; // Handle NULL as Option<f64>
+                    val.map_or(Value::Null, |v| {
+                        Value::String(serde_json::to_string(&v).unwrap())
+                    })
                 }
                 "BOOL" => {
-                    let val: Option<bool> = row.try_get(column_name)?;  // Handle NULL as Option<bool>
+                    let val: Option<bool> = row.try_get(column_name)?; // Handle NULL as Option<bool>
                     val.map_or(Value::Null, Value::Bool)
                 }
                 "DATETIME" => {
-                    let val: Option<String> = row.try_get(column_name)?;  // Handle NULL as Option<String>
+                    let val: Option<String> = row.try_get(column_name)?; // Handle NULL as Option<String>
                     val.map_or(Value::Null, Value::String)
                 }
                 "DATE" => {
-                    let val: Option<chrono::NaiveDate> = row.try_get(column_name)?;  // Handle NULL as Option<chrono::NaiveDate>
+                    let val: Option<chrono::NaiveDate> = row.try_get(column_name)?; // Handle NULL as Option<chrono::NaiveDate>
                     val.map_or(Value::Null, |v| Value::String(v.to_string()))
                 }
-                _ => {
-                    Value::Null
-                }
+                _ => Value::Null,
             };
 
             json_object.insert(column_name.to_string(), value);

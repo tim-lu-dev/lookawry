@@ -46,51 +46,54 @@ impl Engine {
         // let _ai = engine.load_ai_process();
         engine
     }
-    pub fn load_ai_process(&mut self) -> Result<String, AppError> {
-        if let Some(ref mut config) = self.config {
-            config.ai_cli_path = String::from("binaries/llama/llama-cli.exe");
-            config.ai_model_path = String::from("binaries/phi3.gguf");
+    // Load an ai_process for ai query with context
+    // Commented now for further consideration
+    //
+    // pub fn load_ai_process(&mut self) -> Result<String, AppError> {
+    //     if let Some(ref mut config) = self.config {
+    //         config.ai_cli_path = String::from("binaries/llama/llama-cli.exe");
+    //         config.ai_model_path = String::from("binaries/phi3.gguf");
 
-            // Build the prompt string using the available config values
-            let mut prompt = String::new();
-            prompt.push_str("You are a helpful assistant. You will generate proper SQL statements for me based on the question user asked. For running in ");
-            prompt.push_str(&config.db_type.to_string());
+    //         // Build the prompt string using the available config values
+    //         let mut prompt = String::new();
+    //         prompt.push_str("You are a helpful assistant. You will generate proper SQL statements for me based on the question user asked. For running in ");
+    //         prompt.push_str(&config.db_type.to_string());
 
-            // Spawn the AI process using the config values
-            let ai_process = std::process::Command::new(&config.ai_cli_path)
-                .arg("-m")
-                .arg(&config.ai_model_path)
-                .arg("-p")
-                .arg(format!("{}", prompt))
-                .arg("-n")
-                .arg("128")
-                .arg("-cnv")
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn();
-            match ai_process {
-                Ok(mut child) => {
-                    // Borrow stdout mutably without taking ownership
-                    if let Some(stdout) = &mut child.stdout {
-                        let mut stdout_reader = std::io::BufReader::new(stdout);
-                        let mut line = String::new();
-                        let _ = stdout_reader.read_line(&mut line);
-                    }
+    //         // Spawn the AI process using the config values
+    //         let ai_process = std::process::Command::new(&config.ai_cli_path)
+    //             .arg("-m")
+    //             .arg(&config.ai_model_path)
+    //             .arg("-p")
+    //             .arg(format!("{}", prompt))
+    //             .arg("-n")
+    //             .arg("128")
+    //             .arg("-cnv")
+    //             .stdin(Stdio::piped())
+    //             .stdout(Stdio::piped())
+    //             .stderr(Stdio::piped())
+    //             .spawn();
+    //         match ai_process {
+    //             Ok(mut child) => {
+    //                 // Borrow stdout mutably without taking ownership
+    //                 if let Some(stdout) = &mut child.stdout {
+    //                     let mut stdout_reader = std::io::BufReader::new(stdout);
+    //                     let mut line = String::new();
+    //                     let _ = stdout_reader.read_line(&mut line);
+    //                 }
 
-                    self.ai_process = Some(child);
-                    Ok("ok".to_string())
-                }
-                Err(e) => {
-                    Err(AppError::EngineExecutionError(e.to_string()))
-                }
-            }
-        } else {
-            Err(AppError::ConfigError(
-                "Configuration is missing. Cannot start AI process.".to_string(),
-            ))
-        }
-    }
+    //                 self.ai_process = Some(child);
+    //                 Ok("ok".to_string())
+    //             }
+    //             Err(e) => {
+    //                 Err(AppError::EngineExecutionError(e.to_string()))
+    //             }
+    //         }
+    //     } else {
+    //         Err(AppError::ConfigError(
+    //             "Configuration is missing. Cannot start AI process.".to_string(),
+    //         ))
+    //     }
+    // }
 
     pub fn talk_to_ai(&mut self, question: String) -> Result<String, AppError> {
         if let Some(config) = &self.config {
@@ -116,6 +119,8 @@ impl Engine {
                 .arg(format!("{}", prompt))
                 .arg("-n".to_string())
                 .arg("128".to_string())
+                .arg("--temp".to_string())
+                .arg("0".to_string())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -130,7 +135,9 @@ impl Engine {
                                 Ok(content) => {
                                     result = result + " " + &content;
                                 }
-                                Err(e) => return Err(AppError::EngineExecutionError(e.to_string()))
+                                Err(e) => {
+                                    return Err(AppError::EngineExecutionError(e.to_string()))
+                                }
                             }
                         }
                     };
@@ -175,7 +182,7 @@ impl Engine {
                             .map_err(|e| AppError::QueryError(e.to_string()))?
                             .to_string();
                     }
-                },
+                }
                 DbType::PostgreSQL => {
                     // Clone data needed after await
                     let connection_string = config.connection_string.clone();
@@ -201,7 +208,7 @@ impl Engine {
                             .map_err(|e| AppError::QueryError(e.to_string()))?
                             .to_string();
                     }
-                },
+                }
                 DbType::SQLite => {
                     let current_sql_knowledge = config.sql_knowledge.clone();
                     let pool = Pool::<Sqlite>::connect(&config.connection_string)
@@ -369,7 +376,7 @@ impl Engine {
             Some(DatabasePool::SQLite(pool)) => {
                 let mut lines = Vec::new();
                 // Query to get all table names from the SQLite database
-    match sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';").fetch_all(pool).await {
+                match sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';").fetch_all(pool).await {
         Ok(res) => {
             // Iterate over each table name
             for row in res {
@@ -377,7 +384,6 @@ impl Engine {
                     Ok(name) => name,
                     Err(e) => return Err(AppError::QueryError(e.to_string()))
                 };// Extract table name;
-                
                 // Query for each table's column info using PRAGMA table_info
                 let query = format!("select name, type from pragma_table_info('{}')", table_name); 
                 match sqlx::query(query.as_str()).fetch_all(pool).await {
@@ -386,14 +392,12 @@ impl Engine {
                         for line in table_info {
                             let name: String = line.try_get("name").unwrap_or_default(); // Extract the name
                             let col_type: String = line.try_get("type").unwrap_or_default(); // Extract the type
-                        
                             // Construct a serde_json::Value object (JSON-like object)
                             let column_info = serde_json::json!({
                                 "table_name": table_name,
                                 "name": name,
                                 "type": col_type
                             });
-                        
                             // Push the JSON object to the lines vector
                             lines.push(column_info);
                         }
@@ -422,7 +426,7 @@ impl Engine {
                 //         return Ok(lines);
                 //     },
                 //     Err(e) => return Err(AppError::QueryError(e.to_string()))
-                // };  
+                // };
             }
             _ => return Err(AppError::QueryError("No such pool".to_string())),
         }
@@ -441,10 +445,10 @@ impl Engine {
             Ok(res) => res,
             Err(e) => return Err(e),
         };
-
         // Filter and extract the SQL query from the AI response
         self.extract_sql(&ai_response)
     }
+
     // Helper function to extract the SQL query from the AI process result
     fn extract_sql(&self, response: &str) -> Result<String, AppError> {
         // Use a case-insensitive regex to capture the SQL between "select" and the first ";"
