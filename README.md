@@ -7,7 +7,8 @@
 
 ![Logo](https://github.com/tim-lu-dev/lookawry/blob/main/screenshot.png)
 
-Look Awry is an open-source application that leverages local AI technology to retrieve data from your SQL databases using natural language queries. Inspired by philosopher Slavoj Žižek's book, the name "Look Awry" represents a new approach to database interaction—no need to write SQL queries manually; simply ask your question, and get results instantly.
+Look Awry is an open-source **Rust** Tauri application.
+Look Awry leverages local AI technology to retrieve data from your SQL databases using natural language queries. Inspired by philosopher Slavoj Žižek's book, the name "Look Awry" represents a new approach to database interaction—no need to write SQL queries manually; simply ask your question, and get results instantly.
 
 ## Table of Contents
 
@@ -58,7 +59,7 @@ Supported platforms:
 On a MacBook Pro M1 with 16 GB of RAM and the Microsoft Phi3 engine, the app retrieves query results in around 10 seconds. Due to lack of access to an Nvidia GPU, the Windows and Linux builds are CPU-based and significantly slower. The macOS version (optimized for Apple Silicon) performs better, thanks to better support from `llama.cpp`.
 
 ### Building from Source:
-
+For developing and building, you will need **Rust** and **NodeJS** environments.
 1. Download the appropriate binary files from the [llama.cpp releases](https://github.com/ggerganov/llama.cpp/releases) page.
 2. Extract the binaries into the `src-tauri/bin` folder. For example, you should have `src-tauri/bin/llama-cli.exe`.
 3. Make sure you have a model in GGUF format to work with the `llama.cpp` engine. I recommend the [Microsoft Phi3 model](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/blob/main/Phi-3-mini-4k-instruct-fp16.gguf), which is the primary model tested with this app.
